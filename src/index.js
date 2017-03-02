@@ -639,10 +639,9 @@ function _deleteRecord({
 
 }
 
-function getSchema(sequelize, { relay: { useNodeInterface = true } }) {
-  if (useNodeInterface) {
-      const { nodeInterface, nodeField, nodeTypeMapper } = sequelizeNodeInterface(sequelize);
-  }
+function getSchema(sequelize, options = {}) {
+  const useNodeInterface = options.useNodeInterface || true
+  const { nodeInterface, nodeField, nodeTypeMapper } = sequelizeNodeInterface(sequelize);
   const interfaces = useNodeInterface ? [nodeInterface] : []
   const Models = sequelize.models;
   const queries = {};
