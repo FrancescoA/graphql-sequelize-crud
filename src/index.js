@@ -124,7 +124,8 @@ function _createRecord({
   ModelTypes,
   associationsToModel,
   associationsFromModel,
-  cache
+  cache,
+  useNodeInterface
 }) {
 
   let createMutationName = mutationName(Model, 'create');
@@ -139,7 +140,9 @@ function _createRecord({
         cache
       });
 
-      convertFieldsToGlobalId(Model, fields);
+      if (useNodeInterface) {
+        convertFieldsToGlobalId(Model, fields);
+      }
 
       // FIXME: Handle timestamps
       // console.log('_timestampAttributes', Model._timestampAttributes);
@@ -208,7 +211,9 @@ function _createRecord({
       return output;
     },
     mutateAndGetPayload: (data) => {
-      convertFieldsFromGlobalId(Model, data);
+      if (useNodeInterface) {
+        convertFieldsFromGlobalId(Model, data);
+      }
       return Model.create(data);
     }
   });
@@ -249,7 +254,8 @@ function _updateRecords({
   ModelTypes,
   associationsToModel,
   associationsFromModel,
-  cache
+  cache,
+  useNodeInterface
 }) {
 
   let updateMutationName = mutationName(Model, 'update');
@@ -264,7 +270,9 @@ function _updateRecords({
         cache
       });
 
-      convertFieldsToGlobalId(Model, fields);
+      if (useNodeInterface) {
+        convertFieldsToGlobalId(Model, fields);
+      }
 
       let updateModelTypeName = `Update${Model.name}ValuesInput`;
       let UpdateModelValuesType = cache[updateModelTypeName] || new GraphQLInputObjectType({
@@ -369,8 +377,10 @@ function _updateRecords({
     mutateAndGetPayload: (data) => {
       // console.log('mutate', data);
       let {values, where} = data;
-      convertFieldsFromGlobalId(Model, values);
-      convertFieldsFromGlobalId(Model, where);
+      if (useNodeInterface) {
+        convertFieldsFromGlobalId(Model, values);
+        convertFieldsFromGlobalId(Model, where);
+      }
       return Model.update(values, {
         where
       })
@@ -393,7 +403,8 @@ function _updateRecord({
   ModelTypes,
   associationsToModel,
   associationsFromModel,
-  cache
+  cache,
+  useNodeInterface
 }) {
 
   let updateMutationName = mutationName(Model, 'updateOne');
@@ -408,7 +419,9 @@ function _updateRecord({
         cache
       });
 
-      convertFieldsToGlobalId(Model, fields);
+      if (useNodeInterface) {
+        convertFieldsToGlobalId(Model, fields);
+      }
 
       let updateModelInputTypeName = `Update${Model.name}ValuesInput`;
       let UpdateModelValuesType = cache[updateModelInputTypeName] || new GraphQLInputObjectType({
@@ -497,8 +510,10 @@ function _updateRecord({
       let where = {
         [Model.primaryKeyAttribute]: data[Model.primaryKeyAttribute]
       };
-      convertFieldsFromGlobalId(Model, values);
-      convertFieldsFromGlobalId(Model, where);
+      if (useNodeInterface) {
+        convertFieldsFromGlobalId(Model, values);
+        convertFieldsFromGlobalId(Model, where);
+      }
 
       return Model.update(values, {
         where
@@ -520,7 +535,8 @@ function _deleteRecords({
   ModelTypes,
   associationsToModel,
   associationsFromModel,
-  cache
+  cache,
+  useNodeInterface
 }) {
 
   let deleteMutationName = mutationName(Model, 'delete');
@@ -534,7 +550,9 @@ function _deleteRecords({
         allowNull: true,
         cache
       });
-      convertFieldsToGlobalId(Model, fields);
+      if (useNodeInterface) {
+        convertFieldsToGlobalId(Model, fields);
+      }
       var DeleteModelWhereType = new GraphQLInputObjectType({
         name: `Delete${Model.name}WhereInput`,
         description: "Options to describe the scope of the search.",
@@ -555,7 +573,9 @@ function _deleteRecords({
     },
     mutateAndGetPayload: (data) => {
       let {where} = data;
-      convertFieldsFromGlobalId(Model, where);
+      if (useNodeInterface) {
+        convertFieldsFromGlobalId(Model, where);
+      }
       return Model.destroy({
         where
       })
@@ -605,7 +625,9 @@ function _deleteRecord({
       let where = {
         [Model.primaryKeyAttribute]: data[Model.primaryKeyAttribute]
       };
-      convertFieldsFromGlobalId(Model, where);
+      if (useNodeInterface) {
+        convertFieldsFromGlobalId(Model, where);
+      }
       return Model.destroy({
         where
       })
@@ -617,10 +639,11 @@ function _deleteRecord({
 
 }
 
-function getSchema(sequelize) {
-
-  const {nodeInterface, nodeField, nodeTypeMapper} = sequelizeNodeInterface(sequelize);
-
+function getSchema(sequelize, { relay: { useNodeInterface = true } }) {
+  if (useNodeInterface) {
+      const { nodeInterface, nodeField, nodeTypeMapper } = sequelizeNodeInterface(sequelize);
+  }
+  const interfaces = useNodeInterface ? [nodeInterface] : []
   const Models = sequelize.models;
   const queries = {};
   const mutations = {};
@@ -661,13 +684,13 @@ function getSchema(sequelize) {
           // Attribute fields
           attributeFields(Model, {
             exclude: Model.excludeFields ? Model.excludeFields : [],
-            globalId: true,
+            globalId: useNodeInterface,
             commentToDescription: true,
             cache
           })
         );
       },
-      interfaces: [nodeInterface]
+      interfaces: interfaces,
     });
     types[Model.name] = modelType;
     // === CRUD ====
@@ -679,21 +702,24 @@ function getSchema(sequelize) {
       ModelTypes: types,
       associationsToModel,
       associationsFromModel,
-      cache
+      cache,
+      useNodeInterface,
     });
 
     // READ single
     _findRecord({
       queries,
       Model,
-      modelType
+      modelType,
+      useNodeInterface,
     });
 
     // READ all
     _findAll({
       queries,
       Model,
-      modelType
+      modelType,
+      useNodeInterface,
     });
 
     // UPDATE single
@@ -704,7 +730,8 @@ function getSchema(sequelize) {
       ModelTypes: types,
       associationsToModel,
       associationsFromModel,
-      cache
+      cache,
+      useNodeInterface
     });
 
     // UPDATE multiple
@@ -715,7 +742,8 @@ function getSchema(sequelize) {
       ModelTypes: types,
       associationsToModel,
       associationsFromModel,
-      cache
+      cache,
+      useNodeInterface,
     });
 
     // DELETE single
@@ -726,7 +754,8 @@ function getSchema(sequelize) {
       ModelTypes: types,
       associationsToModel,
       associationsFromModel,
-      cache
+      cache,
+      useNodeInterface,
     });
 
     _deleteRecords({
@@ -736,7 +765,8 @@ function getSchema(sequelize) {
       ModelTypes: types,
       associationsToModel,
       associationsFromModel,
-      cache
+      cache,
+      useNodeInterface,
     });
 
 
@@ -855,10 +885,12 @@ function getSchema(sequelize) {
 
   });
 
-  // Configure NodeTypeMapper
-  nodeTypeMapper.mapTypes({
-    ...ModelTypes
-  });
+  if (useNodeInterface) {
+    // Configure NodeTypeMapper
+    nodeTypeMapper.mapTypes({
+      ...ModelTypes
+    });
+  }
 
   const Queries = new GraphQLObjectType({
     name: "Root",
@@ -871,7 +903,7 @@ function getSchema(sequelize) {
         resolve: () => ({})
       },
       ...queries,
-      node: nodeField
+      node: useNodeInterface ? nodeField : undefined
     })
   });
 
